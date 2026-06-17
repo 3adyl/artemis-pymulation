@@ -35,7 +35,8 @@ STYLES = """
         padding-top: 60px;
         padding-bottom: 60px;
     }
-
+    
+    /* ── Kinowy widok ── */
     canvas {
         width: 96vw !important;
         height: 75vh !important;
