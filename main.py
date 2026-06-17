@@ -263,7 +263,7 @@ STYLES = """
                     var s3 = siblings.eq(5);
 
                     var c1 = $('<div class="param-container"></div>');
-                    var h1 = $('<div class="param-header"><span class="param-label">Prędkość wyjściowa:</span></div>').append(w1);
+                    var h1 = $('<div class="param-header"><span class="param-label">Prędkość wyjściowa (odlotu):</span></div>').append(w1);
                     c1.append(h1, s1);
 
                     var c2 = $('<div class="param-container"></div>');
