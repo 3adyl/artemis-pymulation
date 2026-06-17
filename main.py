@@ -1,7 +1,7 @@
 from vpython import *
 import math
 
-# ── Wstrzykiwanie CSS (Modern Space Theme) ──────────────────
+# ── CSS ──────────────────
 STYLES = """
 <style>
     * { box-sizing: border-box; }
@@ -33,14 +33,20 @@ STYLES = """
         justify-content: center;
         height: 100vh;
         width: 100vw;
-        padding-top: 25px; /* Delikatne odsunięcie od nagłówka */
+        padding-top: 60px; /* Przestrzeń pod nagłówkiem */
+        padding-bottom: 60px; /* Przestrzeń nad przyciskami */
     }
 
-    /* Kinowy format ULTRAWIDE (21:9) sterowany automatycznie! */
+    /* Kinowy format ULTRAWIDE - Pancerny Cross-Clamping */
     canvas {
-        /* Przeglądarka sama dobierze max rozmiar chroniąc przyciski i boki */
-        width: min(96vw, calc(76vh * 21 / 9)) !important;
-        height: min(76vh, calc(96vw * 9 / 21)) !important;
+        /* Próbuje zająć maksimum bezpiecznej przestrzeni */
+        width: 96vw !important;
+        height: 75vh !important;
+        
+        /* Ale żelazna matematyka ucina to, co próbuje wyjść za proporcje 21:9 */
+        max-width: calc(75vh * 21 / 9) !important;
+        max-height: calc(96vw * 9 / 21) !important;
+        
         box-shadow: 0px 0px 30px rgba(0, 0, 0, 0.9);
         border-radius: 8px;
         border: 1px solid #1f2833;
@@ -116,7 +122,6 @@ STYLES = """
 <div class="dashboard-title">Artemis II mission trajectory</div>
 """
 
-# ── Stałe fizyczne ──────────────────────────────────────────
 G         = 6.674e-11
 M_EARTH   = 5.972e24
 M_MOON    = 7.342e22
@@ -129,7 +134,6 @@ R_PARK    = R_EARTH + 185_000
 V_PARK    = math.sqrt(G * M_EARTH / R_PARK)       # ~7796 m/s
 V_TLI     = V_PARK + 3150                          # ~10946 m/s
 
-# ── Warunki początkowe (dobrane numerycznie dla ósemki) ─────
 SHIP_ANG  = math.radians(120)
 MOON_ANG  = math.radians(244)
 
@@ -144,7 +148,7 @@ def init_state():
                 math.cos(MOON_ANG) * V_MOON, 0)
     return ps, vs, pm, vm
 
-# ── Skala ───────────────────────────────────────────────────
+# ── Scale ───────────────────────────────────────────────────
 SCALE   = 1.0 / 1.4e6
 R_E_VIS = 4.5
 R_M_VIS = 2.5
@@ -153,13 +157,13 @@ R_S_VIS = 0.5
 def sv(pos_m):
     return vector(pos_m.x * SCALE, pos_m.y * SCALE, pos_m.z * SCALE)
 
-# ── Scena ────────────────────────────────────────────────────
+# ── Scene ────────────────────────────────────────────────────
 scene = canvas(
     title      = STYLES,
-    width      = 2100,            # Zwiększona szerokość
-    height     = 900,          # Kinowa, niska wysokość (Format 21:9)
+    width      = 2100,
+    height     = 900,
     background = color.black,
-    range      = D_EM * SCALE * 0.40, # Zwiększono zasięg widzenia!
+    range      = D_EM * SCALE * 0.40,
 )
 
 CAM_ROT_ANG = math.radians(120)
@@ -168,24 +172,27 @@ screen_left = rotate(vector(-1, 0, 0), angle=CAM_ROT_ANG, axis=vector(0, 0, 1))
 CAMERA_OFFSET = 120.0
 scene.center = vector(0, 0, 0) + screen_left * CAMERA_OFFSET
 
-# ── Ziemia ───────────────────────────────────────────────────
+# ── Earth ───────────────────────────────────────────────────
 earth = sphere(
     pos     = vector(0, 0, 0),
     radius  = R_E_VIS,
     texture = textures.earth,
+    axis    = vector(1, 0, 0),
+    up      = vector(0, 0, 1)
 )
 earth_label = label(
-    pos     = earth.pos,       # Idealnie w środku Ziemi
-    text    = 'Ziemia',
+    pos     = earth.pos,
+    text    = 'Earth',
     height  = 20,
     color   = color.green,
     box     = False,
-    line    = False,           # Wyłącza kreskę łączącą środek z napisem
+    line    = False,
     opacity = 0,
-    yoffset = 25               # Przesunięcie o 25 PIKSELI ZAWSZE w górę ekranu
+    yoffset = -5,
+    xoffset = 30
 )
 
-# ── Księżyc ──────────────────────────────────────────────────
+# ── Moon ──────────────────────────────────────────────────
 ps0, vs0, pm0, vm0 = init_state()
 
 moon = sphere(
@@ -195,7 +202,7 @@ moon = sphere(
 )
 moon_label = label(
     pos     = moon.pos,
-    text    = 'Księżyc',
+    text    = 'Moon',
     height  = 20,
     color   = color.white,
     box     = False,
@@ -204,7 +211,7 @@ moon_label = label(
     yoffset = 20
 )
 
-# Orbita Księżyca
+# Moon orbit
 moon_orbit = curve(color=color.gray(0.4), radius=0.5)
 N_ORBIT_PTS = 200
 for i in range(N_ORBIT_PTS + 1):
@@ -212,7 +219,7 @@ for i in range(N_ORBIT_PTS + 1):
     moon_orbit.append(vector(D_EM * SCALE * math.cos(ang),
                              D_EM * SCALE * math.sin(ang), 0))
 
-# ── Statek ───────────────────────────────────────────────────
+# ── ship ───────────────────────────────────────────────────
 ship = sphere(
     pos          = sv(ps0),
     radius       = R_S_VIS,
@@ -279,7 +286,7 @@ def euler_moon(pm, vm, dt):
 def on_pause(b):
     global paused
     paused = not paused
-    b.text = 'Wznów' if paused else 'Pauza'
+    b.text = 'Resume' if paused else 'Pause'
 
 def on_reset(b):
     global pos_ship, vel_ship, pos_moon, vel_moon, t, done
@@ -302,10 +309,10 @@ def on_slower(b):
 
 # Ustawiamy DIV dla przycisków
 scene.append_to_caption('\n') # Mały odstęp bezpieczeństwa pod płótnem
-button(text='Pauza',    bind=on_pause)
+button(text='Pause',    bind=on_pause)
 button(text='Reset',    bind=on_reset)
-button(text='Szybciej', bind=on_faster)
-button(text='Wolniej',  bind=on_slower)
+button(text='Faster', bind=on_faster)
+button(text='Slower',  bind=on_slower)
 
 # ── Panel Telemetrii ─────────────────────────────────────────
 # Tworzymy pojedynczy obiekt wtext, który będzie renderował cały kontener telemetryczny.
@@ -345,7 +352,7 @@ while True:
     minutes = int((t % 3600) // 60)
     seconds = int(t % 60)
 
-    # Ziemia
+    # Earth
     dist_e = mag(pos_ship)
     alt_e = (dist_e - R_EARTH) / 1000.0
     if alt_e < 0: alt_e = 0.0
@@ -365,19 +372,19 @@ while True:
             <span class='telemetry-val'>{days:02d}d {hours:02d}h {minutes:02d}m {seconds:02d}s</span>
         </div>
         <div class='telemetry-row'>
-            <span class='telemetry-label'>Alt (Ziemia):</span>
+            <span class='telemetry-label'>Altitude (Earth):</span>
             <span class='telemetry-val'>{alt_e:,.1f} km</span>
         </div>
         <div class='telemetry-row'>
-            <span class='telemetry-label'>V (Ziemia):</span>
+            <span class='telemetry-label'>Velocity (Earth):</span>
             <span class='telemetry-val'>{vel_e:.3f} km/s</span>
         </div>
         <div class='telemetry-row'>
-            <span class='telemetry-label'>Alt (Księżyc):</span>
+            <span class='telemetry-label'>Altitude (Moon):</span>
             <span class='telemetry-val'>{alt_m:,.1f} km</span>
         </div>
         <div class='telemetry-row'>
-            <span class='telemetry-label'>V (Księżyc):</span>
+            <span class='telemetry-label'>Velocity (Moon):</span>
             <span class='telemetry-val'>{vel_m:.3f} km/s</span>
         </div>
     </div>
