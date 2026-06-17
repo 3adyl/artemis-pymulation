@@ -1,11 +1,86 @@
-"""
-Artemis II – Free-Return Trajectory Simulation
-Wymagania: pip install vpython
-Uruchomienie: python artemis2_simulation.py
-"""
-
 from vpython import *
 import math
+
+# ── Wstrzykiwanie CSS (Modern Space Theme) ──────────────────
+STYLES = """
+<style>
+    * { box-sizing: border-box; }
+    body, html {
+        margin: 0 !important;
+        padding: 0 !important;
+        background-color: #0b0c10 !important;
+        overflow: hidden !important; 
+        width: 100vw;
+        height: 100vh;
+    }
+
+    /* Węższy nagłówek = więcej miejsca na grafikę 3D */
+    .dashboard-title {
+        position: fixed;
+        top: 0; left: 0; width: 100vw;
+        padding: 10px 0; margin: 0 !important;
+        font-size: 20px; font-weight: 900; letter-spacing: 4px;
+        text-transform: uppercase; color: #66fcf1;
+        background: #1f2833; text-align: center;
+        box-shadow: 0px 4px 15px rgba(0,0,0,0.8);
+        z-index: 9999;
+    }
+
+    #glowscript {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        width: 100vw;
+        padding-top: 25px; /* Delikatne odsunięcie od nagłówka */
+    }
+
+    /* Kinowy format ULTRAWIDE (21:9) sterowany automatycznie! */
+    canvas {
+        /* Przeglądarka sama dobierze max rozmiar chroniąc przyciski i boki */
+        width: min(96vw, calc(76vh * 21 / 9)) !important;
+        height: min(76vh, calc(96vw * 9 / 21)) !important;
+        box-shadow: 0px 0px 30px rgba(0, 0, 0, 0.9);
+        border-radius: 8px;
+        border: 1px solid #1f2833;
+    }
+
+    /* Przyciski na samym dole */
+    #glowscript > div:last-child {
+        position: fixed !important;
+        bottom: 15px !important; 
+        left: 0 !important;
+        width: 100vw !important;
+        display: flex !important;
+        justify-content: center !important;
+        gap: 15px !important; 
+        z-index: 10000 !important;
+    }
+
+    button {
+        background-color: #1f2833 !important;
+        color: #66fcf1 !important;
+        border: 1px solid #45a29e !important;
+        border-radius: 4px;
+        padding: 10px 30px !important;
+        margin: 0 !important; 
+        font-size: 14px !important;
+        font-weight: bold;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    button:hover {
+        background-color: #45a29e !important;
+        color: #0b0c10 !important;
+        box-shadow: 0px 0px 15px #66fcf1;
+        transform: translateY(-2px);
+    }
+</style>
+<div class="dashboard-title">Artemis II mission trajectory</div>
+"""
 
 # ── Stałe fizyczne ──────────────────────────────────────────
 G         = 6.674e-11
@@ -21,8 +96,6 @@ V_PARK    = math.sqrt(G * M_EARTH / R_PARK)       # ~7796 m/s
 V_TLI     = V_PARK + 3150                          # ~10946 m/s
 
 # ── Warunki początkowe (dobrane numerycznie dla ósemki) ─────
-#   statek startuje pod kątem 120°, Księżyc pod kątem 244°
-#   → przelot ~19 000 km od Księżyca, powrót po ~9.2 dnia
 SHIP_ANG  = math.radians(120)
 MOON_ANG  = math.radians(244)
 
@@ -38,32 +111,44 @@ def init_state():
     return ps, vs, pm, vm
 
 # ── Skala ───────────────────────────────────────────────────
-SCALE   = 1.0 / 1.4e6      # 1 jednostka VPython ≈ 1400 km
-R_E_VIS = 4.5               # Ziemia – powiększona dla czytelności
-R_M_VIS = 2.5               # Księżyc – powiększony
-R_S_VIS = 0.5               # statek
+SCALE   = 1.0 / 1.4e6
+R_E_VIS = 4.5
+R_M_VIS = 2.5
+R_S_VIS = 0.5
 
 def sv(pos_m):
     return vector(pos_m.x * SCALE, pos_m.y * SCALE, pos_m.z * SCALE)
 
 # ── Scena ────────────────────────────────────────────────────
 scene = canvas(
-    title      = 'Artemis II – Free-Return Trajectory',
-    width      = 1200,
-    height     = 750,
+    title      = STYLES,
+    width      = 2100,            # Zwiększona szerokość
+    height     = 900,          # Kinowa, niska wysokość (Format 21:9)
     background = color.black,
-    range      = D_EM * SCALE * 0.85,
+    range      = D_EM * SCALE * 0.40, # Zwiększono zasięg widzenia!
 )
-# Wyśrodkuj między Ziemią a Księżycem
-cx = 0.5 * D_EM * SCALE * math.cos(MOON_ANG)
-cy = 0.5 * D_EM * SCALE * math.sin(MOON_ANG)
-scene.center = vector(cx, cy, 0)
+
+CAM_ROT_ANG = math.radians(120)
+scene.camera.up = rotate(vector(0, 1, 0), angle=CAM_ROT_ANG, axis=vector(0, 0, 1))
+screen_left = rotate(vector(-1, 0, 0), angle=CAM_ROT_ANG, axis=vector(0, 0, 1))
+CAMERA_OFFSET = 120.0
+scene.center = vector(0, 0, 0) + screen_left * CAMERA_OFFSET
 
 # ── Ziemia ───────────────────────────────────────────────────
 earth = sphere(
     pos     = vector(0, 0, 0),
     radius  = R_E_VIS,
     texture = textures.earth,
+)
+earth_label = label(
+    pos     = earth.pos,       # Idealnie w środku Ziemi
+    text    = 'Ziemia',
+    height  = 20,
+    color   = color.green,
+    box     = False,
+    line    = False,           # Wyłącza kreskę łączącą środek z napisem
+    opacity = 0,
+    yoffset = 25               # Przesunięcie o 25 PIKSELI ZAWSZE w górę ekranu
 )
 
 # ── Księżyc ──────────────────────────────────────────────────
@@ -74,6 +159,24 @@ moon = sphere(
     radius = R_M_VIS,
     color  = color.gray(0.65),
 )
+moon_label = label(
+    pos     = moon.pos,
+    text    = 'Księżyc',
+    height  = 20,
+    color   = color.white,
+    box     = False,
+    line    = False,
+    opacity = 0,
+    yoffset = 20
+)
+
+# Orbita Księżyca
+moon_orbit = curve(color=color.gray(0.4), radius=0.5)
+N_ORBIT_PTS = 200
+for i in range(N_ORBIT_PTS + 1):
+    ang = 2 * math.pi * i / N_ORBIT_PTS
+    moon_orbit.append(vector(D_EM * SCALE * math.cos(ang),
+                             D_EM * SCALE * math.sin(ang), 0))
 
 # ── Statek ───────────────────────────────────────────────────
 ship = sphere(
@@ -84,15 +187,25 @@ ship = sphere(
     make_trail   = True,
     trail_type   = 'curve',
     trail_color  = color.orange,
-    trail_radius = 0.12,
+    trail_radius = 0.5,
     retain       = 12000,
+)
+ship_label = label(
+    pos     = ship.pos,
+    text    = 'Integrity',
+    height  = 20,
+    color   = color.yellow,
+    box     = False,
+    line    = False,
+    opacity = 0,
+    yoffset = 15
 )
 
 # ── Stan symulacji ───────────────────────────────────────────
 pos_ship, vel_ship, pos_moon, vel_moon = init_state()
 t      = 0.0
-dt     = 30.0          # krok RK4 [s]
-SPEED  = 1200          # sekund symulacji na sekundę rzeczywistą
+dt     = 30.0
+SPEED  = 1200
 paused = False
 done   = False
 
@@ -141,6 +254,9 @@ def on_reset(b):
     ship.clear_trail()
     ship.pos = sv(pos_ship)
     moon.pos = sv(pos_moon)
+    # Zmienione, by napis podążał dokładnie za statkiem (z uwzględnieniem yoffset)
+    ship_label.pos = ship.pos
+    moon_label.pos = moon.pos
 
 def on_faster(b):
     global SPEED
@@ -150,13 +266,11 @@ def on_slower(b):
     global SPEED
     SPEED = max(SPEED // 2, 60)
 
-scene.append_to_caption('\n')
+# Ustawiamy DIV dla przycisków
+scene.append_to_caption('\n') # Mały odstęp bezpieczeństwa pod płótnem
 button(text='Pauza',    bind=on_pause)
-scene.append_to_caption('  ')
 button(text='Reset',    bind=on_reset)
-scene.append_to_caption('  ')
 button(text='Szybciej', bind=on_faster)
-scene.append_to_caption('  ')
 button(text='Wolniej',  bind=on_slower)
 
 # ── Główna pętla ─────────────────────────────────────────────
@@ -174,6 +288,10 @@ while True:
 
     ship.pos = sv(pos_ship)
     moon.pos = sv(pos_moon)
+
+    # Zmienione, by napis podążał dokładnie za statkiem
+    ship_label.pos = ship.pos
+    moon_label.pos = moon.pos
 
     earth.rotate(angle=0.001, axis=vector(0, 0, 1))
 
