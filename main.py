@@ -263,15 +263,15 @@ STYLES = """
                     var s3 = siblings.eq(5);
 
                     var c1 = $('<div class="param-container"></div>');
-                    var h1 = $('<div class="param-header"><span class="param-label">Prędkość wyjściowa (odlotu):</span></div>').append(w1);
+                    var h1 = $('<div class="param-header"><span class="param-label">Exit velocity:</span></div>').append(w1);
                     c1.append(h1, s1);
 
                     var c2 = $('<div class="param-container"></div>');
-                    var h2 = $('<div class="param-header"><span class="param-label">Kat startu statku:</span></div>').append(w2);
+                    var h2 = $('<div class="param-header"><span class="param-label">Mission start angle:</span></div>').append(w2);
                     c2.append(h2, s2);
 
                     var c3 = $('<div class="param-container"></div>');
-                    var h3 = $('<div class="param-header"><span class="param-label">Pozycja Ksiezyca:</span></div>').append(w3);
+                    var h3 = $('<div class="param-header"><span class="param-label">Moon position angle:</span></div>').append(w3);
                     c3.append(h3, s3);
 
                     panel.append(c1, c2, c3);
