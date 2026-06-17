@@ -78,6 +78,40 @@ STYLES = """
         box-shadow: 0px 0px 15px #66fcf1;
         transform: translateY(-2px);
     }
+
+    /* Panel telemetrii w prawym górnym rogu */
+    .telemetry-panel {
+        position: fixed !important;
+        top: 60px !important;
+        right: 20px !important;
+        background: rgba(31, 40, 51, 0.85) !important;
+        border: 1px solid #45a29e !important;
+        border-radius: 8px !important;
+        padding: 15px !important;
+        color: #66fcf1 !important;
+        font-family: 'Courier New', monospace !important;
+        font-size: 13px !important;
+        box-shadow: 0px 0px 20px rgba(0,0,0,0.6) !important;
+        z-index: 10000 !important;
+        width: 280px !important;
+        pointer-events: none !important;
+    }
+    .telemetry-row {
+        margin-bottom: 8px !important;
+        display: flex !important;
+        justify-content: space-between !important;
+    }
+    .telemetry-row:last-child {
+        margin-bottom: 0 !important;
+    }
+    .telemetry-label {
+        color: #c5c6c7 !important;
+        font-weight: bold !important;
+    }
+    .telemetry-val {
+        color: #66fcf1 !important;
+        text-align: right !important;
+    }
 </style>
 <div class="dashboard-title">Artemis II mission trajectory</div>
 """
@@ -273,30 +307,78 @@ button(text='Reset',    bind=on_reset)
 button(text='Szybciej', bind=on_faster)
 button(text='Wolniej',  bind=on_slower)
 
+# ── Panel Telemetrii ─────────────────────────────────────────
+# Tworzymy pojedynczy obiekt wtext, który będzie renderował cały kontener telemetryczny.
+# Zapobiega to automatycznemu zamykaniu tagów HTML przez przeglądarkę i umieszcza dane wewnątrz panelu.
+telemetry_hud = wtext(text="")
+
 # ── Główna pętla ─────────────────────────────────────────────
 while True:
     rate(60)
-    if paused or done:
-        continue
+    
+    if not (paused or done):
+        steps = max(1, int(SPEED / dt / 60))
 
-    steps = max(1, int(SPEED / dt / 60))
+        for _ in range(steps):
+            pos_moon, vel_moon = euler_moon(pos_moon, vel_moon, dt)
+            pos_ship, vel_ship = rk4(pos_ship, vel_ship, pos_moon, dt)
+            t += dt
 
-    for _ in range(steps):
-        pos_moon, vel_moon = euler_moon(pos_moon, vel_moon, dt)
-        pos_ship, vel_ship = rk4(pos_ship, vel_ship, pos_moon, dt)
-        t += dt
+        ship.pos = sv(pos_ship)
+        moon.pos = sv(pos_moon)
 
-    ship.pos = sv(pos_ship)
-    moon.pos = sv(pos_moon)
+        # Zmienione, by napis podążał dokładnie za statkiem
+        ship_label.pos = ship.pos
+        moon_label.pos = moon.pos
 
-    # Zmienione, by napis podążał dokładnie za statkiem
-    ship_label.pos = ship.pos
-    moon_label.pos = moon.pos
+        earth.rotate(angle=0.001, axis=vector(0, 0, 1))
 
-    earth.rotate(angle=0.001, axis=vector(0, 0, 1))
+        if t / 86400 > 0.5 and mag(pos_ship) < R_EARTH * 1.3:
+            done = True
 
-    if t / 86400 > 0.5 and mag(pos_ship) < R_EARTH * 1.3:
-        done = True
+        if t / 86400 > 13:
+            done = True
 
-    if t / 86400 > 13:
-        done = True
+    # ── Aktualizacja panelu telemetrii ────────────────────────
+    days = int(t // 86400)
+    hours = int((t % 86400) // 3600)
+    minutes = int((t % 3600) // 60)
+    seconds = int(t % 60)
+
+    # Ziemia
+    dist_e = mag(pos_ship)
+    alt_e = (dist_e - R_EARTH) / 1000.0
+    if alt_e < 0: alt_e = 0.0
+    vel_e = mag(vel_ship) / 1000.0
+
+    # Księżyc
+    dist_m = mag(pos_ship - pos_moon)
+    alt_m = (dist_m - R_MOON) / 1000.0
+    if alt_m < 0: alt_m = 0.0
+    vel_m = mag(vel_ship - vel_moon) / 1000.0
+
+    # Tworzymy pełen blok HTML z wartościami i przypisujemy do jedynego obiektu wtext
+    telemetry_hud.text = f"""
+    <div class='telemetry-panel'>
+        <div class='telemetry-row'>
+            <span class='telemetry-label'>MET:</span>
+            <span class='telemetry-val'>{days:02d}d {hours:02d}h {minutes:02d}m {seconds:02d}s</span>
+        </div>
+        <div class='telemetry-row'>
+            <span class='telemetry-label'>Alt (Ziemia):</span>
+            <span class='telemetry-val'>{alt_e:,.1f} km</span>
+        </div>
+        <div class='telemetry-row'>
+            <span class='telemetry-label'>V (Ziemia):</span>
+            <span class='telemetry-val'>{vel_e:.3f} km/s</span>
+        </div>
+        <div class='telemetry-row'>
+            <span class='telemetry-label'>Alt (Księżyc):</span>
+            <span class='telemetry-val'>{alt_m:,.1f} km</span>
+        </div>
+        <div class='telemetry-row'>
+            <span class='telemetry-label'>V (Księżyc):</span>
+            <span class='telemetry-val'>{vel_m:.3f} km/s</span>
+        </div>
+    </div>
+    """.replace(",", " ")
