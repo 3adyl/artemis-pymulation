@@ -36,7 +36,6 @@ STYLES = """
         padding-bottom: 60px;
     }
 
-    /* Kinowy format ULTRAWIDE */
     canvas {
         width: 96vw !important;
         height: 75vh !important;
